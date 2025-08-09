@@ -202,17 +202,25 @@ install_jellyfin() {
 # Fix permissions for unprivileged container
 fix_permissions() {
     msg_info "Configuring permissions"
+
+    # Check filesystem type
+    FS_TYPE=$(blkid -s TYPE -o value "$USB_DEVICE")
     
-    # Get Jellyfin user ID in container (usually 100-999)
-    JELLYFIN_UID=$(pct exec "$CT_ID" -- id -u jellyfin)
-    JELLYFIN_GID=$(pct exec "$CT_ID" -- id -g jellyfin)
-    
-    # Calculate mapped IDs (add 100000 for unprivileged)
-    HOST_UID=$((100000 + JELLYFIN_UID))
-    HOST_GID=$((100000 + JELLYFIN_GID))
-    
-    msg_info "Setting ownership to $HOST_UID:$HOST_GID on host"
-    chown -R "$HOST_UID:$HOST_GID" "$USB_MOUNT"
+    if [[ "$FS_TYPE" == "exfat" ]] || [[ "$FS_TYPE" == "ntfs" ]]; then
+        msg_info "Filesystem is $FS_TYPE - permissions set via mount options"
+        # For exFAT/NTFS, permissions are handled by mount options
+        # Remount to ensure options are applied
+        umount "$USB_MOUNT" 2>/dev/null || true
+        mount "$USB_MOUNT"
+    else
+        # For ext4/other Unix filesystems, use chown
+        JELLYFIN_UID=$(pct exec "$CT_ID" -- id -u jellyfin)
+        JELLYFIN_GID=$(pct exec "$CT_ID" -- id -g jellyfin)
+        HOST_UID=$((100000 + JELLYFIN_UID))
+        HOST_GID=$((100000 + JELLYFIN_GID))
+        msg_info "Setting ownership to $HOST_UID:$HOST_GID on host"
+        chown -R "$HOST_UID:$HOST_GID" "$USB_MOUNT"
+    fi
     
     msg_ok "Permissions configured"
 }
