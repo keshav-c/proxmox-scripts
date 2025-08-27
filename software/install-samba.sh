@@ -74,8 +74,7 @@ fi
 
 # Ensure share path perms/ownership for RW usage
 chmod -R 0775 "$SHARE_PATH"
-chown -R "$SMB_USER:$SMB_USER" "$SHARE_PATH"
-chmod g+s "$SHARE_PATH"
+
 
 # Write (or replace) the share definition
 info "Configuring Samba share [$SHARE_NAME] -> $SHARE_PATH"
@@ -92,8 +91,8 @@ cat >> /etc/samba/smb.conf <<EOF
    valid users = $SMB_USER
    create mask = 0664
    directory mask = 0775
-   force user = $SMB_USER
-   force group = $SMB_USER
+   force user = root
+   force group = root
 EOF
 
 # Restart Samba
