@@ -23,6 +23,8 @@ CT_STORAGE="local-lvm"      # Where to store container disk
 CT_BRIDGE="vmbr0"           # Network bridge to use
 
 # USB mount settings
+SKIP_USB_SETUP="true" 
+
 USB_DEVICE="/dev/sdb1"      # Your USB drive partition
 USB_MOUNT="/mnt/bjorne"  # Where to mount on host
 MEDIA_PATH="/media/bjorne"     # Path inside container
@@ -123,6 +125,11 @@ create_container() {
 
 # Mount USB drive on host
 setup_usb_mount() {
+    if [[ "$SKIP_USB_SETUP" == "true" ]]; then
+        msg_info "Skipping USB mount setup as requested"
+        return
+    fi
+
     msg_info "Setting up USB drive mount"
     
     # Create mount point
@@ -188,6 +195,9 @@ install_jellyfin() {
     
     # Install dependencies
     pct exec "$CT_ID" -- apt-get install -y curl gnupg
+    pct exec "$CT_ID" -- apt-get install -y avahi-daemon libnss-mdns
+    pct exec "$CT_ID" -- systemctl enable avahi-daemon
+    pct exec "$CT_ID" -- systemctl start avahi-daemon
     
     # Run official Jellyfin install script
     pct exec "$CT_ID" -- bash -c "curl https://repo.jellyfin.org/install-debuntu.sh | bash"
@@ -233,16 +243,35 @@ show_completion() {
     echo
     msg_ok "=== JELLYFIN SETUP COMPLETE ==="
     echo
-    echo "Container ID:     $CT_ID"
-    echo "IP Address:       $CONTAINER_IP"
-    echo "Web Interface:    http://$CONTAINER_IP:8096"
+    echo "Container ID  :     $CT_ID"
+    echo "IP Address    :       $CONTAINER_IP"
+    echo "Hostname      :         $CT_HOSTNAME"
+    echo "Root username :    root"
+    echo "Root password :    ${CT_PASSWORD}"
+    echo "Web Interface :    http://$CONTAINER_IP:8096"
     echo "Media Location:   $MEDIA_PATH (in container)"
-    echo "USB Mount:        $USB_MOUNT (on host)"
+    echo "USB Mount     :        $USB_MOUNT (on host)"
+    echo
+    echo "Web access:"
+    echo "  Via IP      :         http://$CT_IP:8096"
+    echo "  Via mDNS    :       http://$CT_HOSTNAME.local:8096"
+    echo
+    echo "Jellyfin service:"
+    echo "  Enable/Start  :   systemctl enable --now jellyfin"
+    echo "  Status        :         systemctl status jellyfin"
+    echo
+    echo "mDNS (Avahi)    :"
+    echo "  Service       :        avahi-daemon"
+    echo "  Status check  :   systemctl status avahi-daemon"
+    echo "  Test name     :      ping $CT_HOSTNAME.local"
+    echo
+    echo "Admin access    :"
+    echo "  From Proxmox host:  pct enter $CT_ID    # root shell (no password)"
     echo
     echo "Next steps:"
-    echo "1. Open http://$CONTAINER_IP:8096 in your browser"
-    echo "2. Complete the Jellyfin setup wizard"
-    echo "3. Add media library pointing to $MEDIA_PATH"
+    echo "  1) Open http://$CT_HOSTNAME.local:8096 (or http://$CT_IP:8096)"
+    echo "  2) Complete the Jellyfin setup wizard"
+    echo "  3) Add a media library pointing to $MEDIA_PATH"
     echo
 }
 
